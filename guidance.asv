@@ -1,0 +1,17 @@
+function [chi_d] = guidance(pos_ship,pos_waypoint)
+%LOS-Guidance - Takes in VRP and computes the chi_d
+
+delta=1;
+Kp=1/delta;
+x_t=pos_waypoint(1);
+y_t=pos_waypoint(2);
+x=pos_ship(1);
+y=pos_ship(2);
+
+pi_p=atan2(y_t-);
+
+[xp,yp,y_e_p]=crosstrack(x_t,y_t,0,0,x,y);
+
+chi_d = pi_p-atan(Kp*y_e_p);
+
+end

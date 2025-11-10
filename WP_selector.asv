@@ -1,0 +1,41 @@
+function [x_t, y_t, x_ref, y_ref, last_wp] = WP_selector(x, y, varargin)
+% WP_SELECTOR  Selects current path segment based on WP.mat waypoints.
+% Inputs:
+%   x, y       : current position (North, East)
+%   varargin   : optional 'reset' to reload WP.mat and re-init
+% Outputs:
+%   x_t,y_t    : target waypoint (k+1)
+%   x_ref,y_ref: reference waypoint (k)
+%   last_wp    : 1 if final waypoint reached (inside switch radius or passed)
+
+%Load first waypoint and see if we are within acceptence circle
+
+persistent WP currWP
+
+R_accept=2*161;
+
+    
+if isempty(WP)
+    WP=loadmat('WP.mat');
+    currWP=WP;
+end 
+
+thisWP=currWP(:,1);
+
+if (((thisWP(1,1)-x)^2+(thisWP(2,1)-y)^2)<=R_accept^2)
+    currWP(:,1)=[];
+    nextWP=currWP(:,1);
+
+else
+    nextWP=currWP;
+
+end
+
+x_t=nextWP(1,1);
+y_t=nextWP(1,2);
+
+
+
+
+
+end
