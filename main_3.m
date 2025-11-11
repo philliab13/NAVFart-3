@@ -67,7 +67,9 @@ v_ins = [0 0 0]';
 b_acc_ins = [0 0 0]';
 theta_ins = [0; 0; psi0]; 
 b_ars_ins = [0 0 0]';
+
 x_ins = [p_ins; v_ins; b_acc_ins; theta_ins; b_ars_ins]; % Initial states for signal generator   
+
 P_prd_INS=eye(15);
 Qd_INS = diag([0.1 0.1 0 0.001 0.001 0 0 0 0.1 0 0 0.001]);
 Rd_INS = diag([0.1 0.1 0.1 1 1 1 0.1]);
@@ -80,6 +82,7 @@ sigma_gyro = 0.0000175; % rad/s (gyroscope)
 sigma_gps_pos = 0.025; % meters (RTK GPS position)
 sigma_gps_vel = 0.02; % m/s (RTK GPS velocity)
 sigma_compass_psi = deg2rad(0.5); % rad (compass)
+w_gyro_b=[0;0;0];
 
 
 
@@ -159,21 +162,23 @@ for i = 1:nTimeSteps
    
 
     if i==1
-        [xk1,yk1,xk,yk,last] = WP_selector(x(4), x(5), 'reset');
+        [xk1,yk1,xk,yk,last] = WP_selector(x_ins(1), x_ins(2), 'reset');
     else
-        [xk1,yk1,xk,yk,last] = WP_selector(x(4), x(5));
+        [xk1,yk1,xk,yk,last] = WP_selector(x_ins(1), x_ins(2));
     end
-    
-   [e_y,pi_p] = crossTrackError(xk1,yk1,xk,yk,x(4),x(5)); 
+
+   [e_y,pi_p] = crossTrackError(xk1,yk1,xk,yk,x_ins(1), x_ins(2)); 
    y_int_dot=y_p_int_dot(e_y,y_p_int);
    y_p_int=y_p_int+h*y_int_dot;
 
    %chi_d = guidance(e_y,pi_p); 
    chi_d=ILOS_guidance(pi_p,e_y,y_p_int);
    psi_ref = chi_d;
-    
+
     xd_dot=ref_model(xd, psi_ref);
     xd=xd+h*xd_dot;
+
+
     %Saturation
     if abs(xd(2))>r_d_max
         r_d=sign(xd(2))*r_d_max;
@@ -182,6 +187,11 @@ for i = 1:nTimeSteps
     end 
 
     psi_d=xd(1);
+
+
+    
+
+
     
     
     
@@ -200,14 +210,15 @@ for i = 1:nTimeSteps
     %r_hat   = x_pst(2);
     %bias_hat = x_pst(3);
 
-    e_psi = ssa( x(6)   - psi_d );
-    e_r   = x(3)  - r_d;
+    e_psi = ssa( x_ins(12)   - psi_d );
+    e_r   = w_gyro_b(3)  - r_d;
     e_int = e_int + h * e_psi;
 
-    
+
     delta_c=PID_heading(e_psi,e_r,e_int);
     delta_max = 40*pi/180;
     delta_c = max(-delta_max, min(delta_max, delta_c));
+
 
 
 
