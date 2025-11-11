@@ -17,7 +17,7 @@ psi_ref = 10 * pi/180;  % desired yaw angle (rad)
 U_ref   = 9;            % desired surge speed (m/s)
 
 % initial states
-eta_0 = [0 0 0]';
+eta_0 = [0 0 deg2rad(-110)]';
 nu_0  = [0 0 0]';
 delta_0 = 0;
 n_0 = 0;
@@ -203,7 +203,9 @@ for i = 1:nTimeSteps
     chi = ssa(x(6) + beta_crab);
     
     % store simulation data in a table (for testing)
-         
+    x(3)=x(3);%+normrnd(0,deg2rad(0.1));
+    x(6)=x(6);%+normrnd(0,deg2rad(0.5));
+    %simdata(i,:) = [x(1:2)' x_3_noise' x(4:5)' x_6_noise' x(7) x(8) u(1) u(2) u_d psi_d r_d beta beta_crab chi chi_d];
     simdata(i,:) = [x(1:3)' x(4:6)' x(7) x(8) u(1) u(2) u_d psi_d r_d beta beta_crab chi chi_d];
 
  
