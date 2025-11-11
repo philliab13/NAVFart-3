@@ -52,13 +52,23 @@ D = 0;
 [A_d,E_d] = c2d(A,E,h);
 
 is_observebale = obsv(A,C);
+
+
+x_prd = zeros(3,1);
+P_prd = eye(3) * 0.1;
+
+Qd = diag([1e-6, 1e-8]);
+Rd = deg2rad(0.5)^2;
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % MAIN LOOP
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 t = 0:h:T_final;                % Time vector
 nTimeSteps = length(t);         % Number of time steps
 
-simdata = zeros(nTimeSteps, 17); % Pre-allocate matrix for efficiency
+simdata = zeros(nTimeSteps, 20); % Pre-allocate matrix for efficiency
 
 for i = 1:nTimeSteps
     
@@ -163,16 +173,26 @@ for i = 1:nTimeSteps
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                   
         
-    
-    e_psi = ssa( x(6) -psi_d);     
-    e_r   = x(3)-r_d;
-    e_int = e_int + h*e_psi;
+    psi_meas = x(6) + normrnd(0, deg2rad(0.5));
+    r_meas   = x(3) + normrnd(0, deg2rad(0.1));
+    [x_pst, P_pst, x_prd, P_prd] = KF(x_prd, P_prd, A_d, B_d, E_d, C, Qd, Rd, psi_meas, x(7));
 
-    
+    psi_hat = x_pst(1);
+    r_hat   = x_pst(2);
+    bias_hat = x_pst(3);
+
+    e_psi = ssa( psi_hat   - psi_d );
+    e_r   = r_hat  - r_d;
+    e_int = e_int + h * e_psi;
+
     
     delta_c=PID_heading(e_psi,e_r,e_int);
     delta_max = 40*pi/180;
     delta_c = max(-delta_max, min(delta_max, delta_c));
+
+
+
+
 
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -206,7 +226,7 @@ for i = 1:nTimeSteps
     x(3)=x(3);%+normrnd(0,deg2rad(0.1));
     x(6)=x(6);%+normrnd(0,deg2rad(0.5));
     %simdata(i,:) = [x(1:2)' x_3_noise' x(4:5)' x_6_noise' x(7) x(8) u(1) u(2) u_d psi_d r_d beta beta_crab chi chi_d];
-    simdata(i,:) = [x(1:3)' x(4:6)' x(7) x(8) u(1) u(2) u_d psi_d r_d beta beta_crab chi chi_d];
+    simdata(i,:) = [x(1:3)' x(4:6)' x(7) x(8) u(1) u(2) u_d psi_d r_d beta beta_crab chi chi_d  psi_hat r_hat bias_hat];
 
  
     % Euler integration
@@ -252,6 +272,9 @@ chi         = simdata(:,16);   % actual course (rad)
 chi_d       = simdata(:,17);   % desired course (rad)
 chi_deg     = (180/pi) * chi;
 chi_d_deg   = (180/pi) * chi_d;
+psi_hat = simdata(:,18);
+r_hat   = simdata(:,19);
+bias_hat = simdata(:,20);
 %%
 pathplotter(x,y)
 figure(4); clf
@@ -317,3 +340,45 @@ flypath('flypath3d_v2/ship1.mat',...
 'xlim', [min(y)-0.1*max(abs(y)),max(y)+0.1*max(abs(y))],... 
 'ylim', [min(x)-0.1*max(abs(x)),max(x)+0.1*max(abs(x))], ...
 'zlim', [-max(max(abs(x)),max(abs(y)))/100,max(max(abs(x)),max(abs(y)))/20]); 
+
+figure;
+subplot(3,1,1);
+plot(t, rad2deg(psi), t, rad2deg(psi_hat), 'LineWidth', 2);
+legend('True ψ', 'Estimated ψ'); ylabel('Yaw (deg)');
+
+subplot(3,1,2);
+plot(t, rad2deg(r), t, rad2deg(r_hat), 'LineWidth', 2);
+legend('True r', 'Estimated r'); ylabel('Yaw rate (deg/s)');
+
+subplot(3,1,3);
+plot(t, rad2deg(bias_hat), 'LineWidth', 2);
+title('Estimated rudder bias'); xlabel('Time (s)'); ylabel('Bias (deg)');
+grid on;
+
+
+
+
+
+
+
+
+
+figure;
+subplot(2,2,1);
+plot(y, x, 'b', 'LineWidth', 2);
+title('Path following (KF-based feedback)');
+xlabel('East [m]'); ylabel('North [m]'); grid on; axis equal;
+
+subplot(2,2,2);
+plot(t, rad2deg(simdata(:,9)), 'r', 'LineWidth', 1.5);
+title('Desired rudder angle \delta_c'); ylabel('deg'); grid on;
+
+subplot(2,2,3);
+plot(t, rad2deg(psi), t, rad2deg(psi_d), 'LineWidth', 2);
+legend('Actual \psi', 'Desired \psi_d');
+title('Yaw angle'); ylabel('deg'); grid on;
+
+subplot(2,2,4);
+plot(t, rad2deg(r), t, rad2deg(r_d), 'LineWidth', 2);
+legend('Actual r', 'Desired r_d');
+title('Yaw rate'); ylabel('deg/s'); grid on;
