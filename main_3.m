@@ -10,7 +10,7 @@ addpath(genpath('flypath3d_v2'))
 % USER INPUTS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clc; clear; close all;
-T_final = 5000;	        % Final simulation time (s)
+T_final = 9000;	        % Final simulation time (s)
 h = 0.1;                % Sampling time (s)
 
 psi_ref = 10 * pi/180;  % desired yaw angle (rad)
@@ -61,10 +61,11 @@ Qd = diag([1e-6, 1e-8]);
 Rd = deg2rad(0.5)^2;
 
 %INU init
+psi0 = x(6);
 p_ins = [0 0 0]'; 
 v_ins = [0 0 0]';
 b_acc_ins = [0 0 0]';
-theta_ins = [0, 0, 0]';
+theta_ins = [0; 0; psi0]; 
 b_ars_ins = [0 0 0]';
 x_ins = [p_ins; v_ins; b_acc_ins; theta_ins; b_ars_ins]; % Initial states for signal generator   
 P_prd_INS=eye(15);
@@ -255,30 +256,33 @@ for i = 1:nTimeSteps
           sin(psi)   cos(psi)   0;
              0          0       1 ];
 
-    f_imu_b = [xdot(1),xdot(2),0]' + Smtrx([0,0,x(3)]') * [x(1),x(2),0]' - R_b2n' * g_n + b_acc_ins + eye(3)*normrnd(0,sigma_accel); % (eq. 14.14, Fossen 2021 or p. 17-18 in L9.pdf)
+    f_imu_b = [xdot(1),xdot(2),0]' + Smtrx([0,0,x(3)]') * [x(1),x(2),0]' - R_b2n' * g_n + b_acc_ins + sigma_accel*randn(3,1); % (eq. 14.14, Fossen 2021 or p. 17-18 in L9.pdf)
     % The gyro measurement is given by the simulated ​angular velocity, you just need to add noise and bias
-    w_gyro_b = [0,0,x(3)]' + b_ars_ins+ eye(3)*normrnd(0,sigma_gyro);
+    w_gyro_b = [0,0,x(3)]' + b_ars_ins+ sigma_gyro*randn(3,1);
                  
     
 
     psi_meas = x(6) + normrnd(0, deg2rad(0.5));
     r_meas   = x(3) + normrnd(0, deg2rad(0.1));
-    y_psi=x(6)+normrnd(0,sigma_compass_psi);
+    y_psi=ssa(x(6)+normrnd(0,sigma_compass_psi));
     mu=deg2rad(63.437894);
 
     % Positions measurements are slower than the sampling time 
     if t(i) > t_slow 
         % Position aiding + compass aiding 
-        y_pos = x(4:6) + normrnd(0,sigma_gps_pos); % Position measurements
-        y_vel = x(1:3) + normrnd(0,sigma_gps_vel); % Optionally velocity meas.
-        [x_ins,P_prd_INS] = ins_euler(x_ins,P_prd_INS,mu,h,Qd_INS,Rd_INS,f_imu_b,w_gyro_b,y_psi,y_pos,y_vel ); 
+        y_pos = [x(4); x(5); 0]           + sigma_gps_pos * randn(3,1);  % NED pos
+        y_vel = R_b2n * [x(1); x(2); 0]   + sigma_gps_vel * randn(3,1);  % NED vel
+
+        [x_ins,P_prd_INS] = ins_euler(x_ins,P_prd_INS,mu,h,Qd_INS,Rd_INS,f_imu_b,w_gyro_b,y_psi,y_pos ); 
         % Update the time for the next slow position measurement 
         t_slow = t_slow + h_pos; 
     else 
 
-        [x_ins,P_prd_INS] = ins_euler(x_ins,P_prd_INS,mu,h,Qd,Rd,f_imu_b,w_gyro_b,y_psi); 
+        [x_ins,P_prd_INS] = ins_euler(x_ins,P_prd_INS,mu,h,Qd_INS,Rd_INS,f_imu_b,w_gyro_b,y_psi); 
     end
-
+    psi_hat  = x_ins(12);                % Euler yaw from INS state
+    r_hat    = w_gyro_b(3) - x_ins(15);  % gyro z minus estimated bias
+    bias_hat = x_ins(15);                % gyro z-bias estimate
     
     % store simulation data in a table (for testing)
     x(3)=x(3);%+normrnd(0,deg2rad(0.1));
