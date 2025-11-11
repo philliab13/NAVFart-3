@@ -1,0 +1,7 @@
+function [x_ins,P_prd] = INS_ESKF(x_ins,P_prd,h,Qd,Rd,f_imu,w_imu,y_psi,y_pos,y_vel)
+%UNTITLED2 Summary of this function goes here
+%   Detailed explanation goes here
+mu=deg2rad(63.437894);
+
+[x_ins, P_prd]=ins_euler(x_ins,P_prd,mu,h,Qd,Rd,f_imu)
+end
